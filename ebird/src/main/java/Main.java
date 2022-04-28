@@ -31,6 +31,7 @@ public class Main {
         while (isRunning) {
             System.out.print("Enter '-query' for querying birds. " +
                     "Enter '-regions' to get subregions of a specific country. " +
+                    "Enter '-help' to get a short description of the commands. " +
                     " Enter '-quit' to quit: ");
             BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
             try {
@@ -52,6 +53,13 @@ public class Main {
                         for (String region : regions) {
                             System.out.println(region);
                         }
+                        break;
+                    case "-help":
+                        System.out.println("'-query' command let's you query the eBirds API for latest bird observation" +
+                                "with at least 5 birds. e.g. DE returns latest observation for Germany.");
+                        System.out.println("'-region' command returns regions of a country. e.g. US returns states in " +
+                                "the United States of America");
+                        System.out.println("'-quit' quits program.");
                         break;
                     case "-quit":
                         isRunning = false;
@@ -96,6 +104,7 @@ public class Main {
                 FindRegionsRequest.builder().countryId(countryCode).build()
         );
         List<String> regions = new ArrayList<>();
+        System.out.println(regionsResponse.getData().size());
         for (RegionSummary regionSummary : regionsResponse.getData()) {
             regions.add(regionSummary.getCountryCode() + "-" + regionSummary.getIsoCode());
         }
