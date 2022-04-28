@@ -84,6 +84,11 @@ public class Main {
                 + getJsonOfResponseObject(responseObjects.get(0)));
     }
 
+    /**
+     * Querying regions in a country
+     * @param countryCode code of country. e.g. US = United States of America, DE = Germany
+     * @return list of regions in country
+     */
     private static List<String> queryCountry(String countryCode) {
         GeoDbApiClient apiClient = new GeoDbApiClient(GeoDbInstanceType.FREE);
         GeoDbApi geoDbApi = new GeoDbApi(apiClient);
