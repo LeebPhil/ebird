@@ -1,11 +1,15 @@
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.wirefreethought.geodb.client.GeoDbApi;
+import com.wirefreethought.geodb.client.model.GeoDbInstanceType;
+import com.wirefreethought.geodb.client.model.RegionSummary;
+import com.wirefreethought.geodb.client.model.RegionsResponse;
+import com.wirefreethought.geodb.client.net.GeoDbApiClient;
+import com.wirefreethought.geodb.client.request.FindRegionsRequest;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
@@ -15,11 +19,12 @@ import java.util.List;
 import java.util.logging.Logger;
 
 public class Main {
-
     private static final Logger log = Logger.getLogger(Main.class.getName());
-    private static final String apiToken = "jru82bsubc2g";
+    private static final String birdApiToken = "jru82bsubc2g"; // my eBird API Token
+    private static final String regionApiToken = "";
     private static String defaultCountry = "DE";
-    private static String url = "https://api.ebird.org/v2/data/obs/%s/recent";
+    private static String birdUrl = "https://api.ebird.org/v2/data/obs/%s/recent";
+    private static String countryUrl = "https://wft-geo-db.p.rapidapi.com/v1/geo/countries/%s/regions";
 
     public static void main(String[] args) {
         boolean isRunning = true;
@@ -30,16 +35,23 @@ public class Main {
             BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
             try {
                 String command = input.readLine();
+                BufferedReader userInput;
                 switch (command.toLowerCase()) {
                     case "-query":
                         System.out.print("Please enter country code: ");
-                        BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
+                        userInput = new BufferedReader(new InputStreamReader(System.in));
                         String countryCode = userInput.readLine();
                         countryCode = countryCode.replaceAll("\\s+", "");
                         executeBirdQuery(countryCode);
                         break;
                     case "-regions":
-                        System.out.println("Working on getting regions of country");
+                        System.out.print("Please enter name of country to get subregions of: ");
+                        userInput = new BufferedReader(new InputStreamReader(System.in));
+                        String countryName = userInput.readLine();
+                        List<String> regions = queryCountry(countryName);
+                        for (String region : regions) {
+                            System.out.println(region);
+                        }
                         break;
                     case "-quit":
                         isRunning = false;
@@ -64,12 +76,25 @@ public class Main {
         if (countryCode.isEmpty() || countryCode.isBlank()) {
             countryCode = defaultCountry;
         }
-        url = String.format(url, countryCode);
-        HttpURLConnection connection = buildConnection(url, apiToken);
+        birdUrl = String.format(birdUrl, countryCode);
+        HttpURLConnection connection = buildBirdConnection(birdUrl, birdApiToken);
         String responseContent = getResponseContent(connection);
         List<ResponseObject> responseObjects = getAllResponseObjects(responseContent);
         System.out.println(String.format("Latest observation with at least 5 birds in %s: \n", countryCode)
                 + getJsonOfResponseObject(responseObjects.get(0)));
+    }
+
+    private static List<String> queryCountry(String countryCode) {
+        GeoDbApiClient apiClient = new GeoDbApiClient(GeoDbInstanceType.FREE);
+        GeoDbApi geoDbApi = new GeoDbApi(apiClient);
+        RegionsResponse regionsResponse = geoDbApi.findRegions(
+                FindRegionsRequest.builder().countryId(countryCode).build()
+        );
+        List<String> regions = new ArrayList<>();
+        for (RegionSummary regionSummary : regionsResponse.getData()) {
+            regions.add(regionSummary.getCountryCode() + "-" + regionSummary.getIsoCode());
+        }
+        return regions;
     }
 
     /**
@@ -79,7 +104,7 @@ public class Main {
      * @param apiToken  apiToken of eBird API
      * @return instance of {@link HttpURLConnection}
      */
-    private static HttpURLConnection buildConnection(String urlString, String apiToken) {
+    private static HttpURLConnection buildBirdConnection(String urlString, String apiToken) {
         try {
             URL url = new URL(urlString);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -147,6 +172,11 @@ public class Main {
         }
     }
 
+    /**
+     * Converts webserver response of querying birds into a list of {@link ResponseObject}.
+     * @param responseContent json string response of webserver
+     * @return {@link List} of {@link ResponseObject}
+     */
     private static List<ResponseObject> getAllResponseObjects(String responseContent) {
         List<ResponseObject> responseObjectList = new ArrayList<>();
         JSONArray jsonArray = new JSONArray(responseContent);
